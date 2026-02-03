@@ -1,0 +1,197 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for the video interview platform */
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  body {
+    @apply antialiased;
+  }
+}
+
+@layer components {
+  /* Professional button styles */
+  .btn-primary {
+    @apply px-6 py-3 bg-blue-600 text-white font-medium rounded-lg shadow-md 
+           hover:bg-blue-700 hover:shadow-lg 
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 
+           transition-all duration-200 ease-in-out
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply px-6 py-3 bg-slate-200 text-slate-700 font-medium rounded-lg 
+           hover:bg-slate-300 
+           focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 
+           transition-all duration-200 ease-in-out;
+  }
+  
+  .btn-danger {
+    @apply px-6 py-3 bg-red-600 text-white font-medium rounded-lg shadow-md 
+           hover:bg-red-700 hover:shadow-lg 
+           focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 
+           transition-all duration-200 ease-in-out;
+  }
+  
+  .btn-success {
+    @apply px-6 py-3 bg-green-600 text-white font-medium rounded-lg shadow-md 
+           hover:bg-green-700 hover:shadow-lg 
+           focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 
+           transition-all duration-200 ease-in-out;
+  }
+
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden;
+  }
+
+  /* Video overlay styles */
+  .video-overlay {
+    @apply absolute inset-x-0 bottom-0 
+           bg-gradient-to-t from-black/80 via-black/50 to-transparent 
+           p-6 pt-20;
+  }
+
+  .question-card {
+    @apply bg-white/10 backdrop-blur-md 
+           border border-white/20 
+           rounded-xl p-5 
+           shadow-xl;
+  }
+
+  /* Recording indicator animation */
+  .recording-pulse {
+    @apply relative flex h-3 w-3;
+  }
+  
+  .recording-pulse::before {
+    @apply absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping;
+    content: '';
+  }
+  
+  .recording-pulse::after {
+    @apply relative inline-flex rounded-full h-3 w-3 bg-red-500;
+    content: '';
+  }
+}
+
+@layer utilities {
+  /* Glassmorphism effect */
+  .glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/20;
+  }
+  
+  /* Text shadow for better readability on video */
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+  
+  /* Smooth scrollbar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.slate.400') theme('colors.slate.100');
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-slate-100 rounded-full;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-slate-400 rounded-full hover:bg-slate-500;
+  }
+}
+
+/* Animation keyframes */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out forwards;
+}
+
+/* Dark mode landing page specific styles */
+@keyframes gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes pulseRing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(99, 102, 241, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+  }
+}
+
+.animate-gradient {
+  animation: gradient 3s ease infinite;
+  background-size: 200% 200%;
+}
+
+.animate-pulse-ring {
+  animation: pulseRing 2s ease-out infinite;
+}
+
+/* Gradient text */
+.gradient-text {
+  @apply bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400 bg-clip-text text-transparent;
+}
+
+/* Glassmorphism dark mode */
+.glass-dark {
+  @apply backdrop-blur-xl bg-white/[0.03] border border-white/[0.08];
+}
+
+/* Glow effects */
+.glow-indigo {
+  box-shadow: 0 0 40px rgba(99, 102, 241, 0.3);
+}
+
+.glow-violet {
+  box-shadow: 0 0 40px rgba(139, 92, 246, 0.3);
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
