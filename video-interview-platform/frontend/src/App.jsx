@@ -83,6 +83,10 @@ function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
   
+  // Candidate info states
+  const [candidateName, setCandidateName] = useState('');
+  const [candidateFolder, setCandidateFolder] = useState('');
+  
   // State management
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
@@ -153,6 +157,9 @@ function App() {
         setSelectedFile(null);
         setResumeError(null);
         setInterviewQuestions(defaultInterviewQuestions);
+        // Reset candidate states
+        setCandidateName(null);
+        setCandidateFolder(null);
       }
       
       setCurrentPage(page);
@@ -335,6 +342,8 @@ function App() {
     formData.append('video', blob, `question-${currentQuestion.id}.webm`);
     formData.append('questionId', currentQuestion.id.toString());
     formData.append('questionText', currentQuestion.text);
+    formData.append('candidateName', candidateName);
+    formData.append('candidateFolder', candidateFolder);
 
     try {
       const response = await axios.post(`${API_URL}/upload`, formData, {
@@ -371,7 +380,7 @@ function App() {
     } finally {
       setIsUploading(false);
     }
-  }, [recordedChunks, currentQuestion, currentQuestionIndex]);
+  }, [recordedChunks, currentQuestion, currentQuestionIndex, candidateName, candidateFolder]);
 
   const retakeRecording = () => {
     setRecordedChunks([]);
@@ -424,6 +433,9 @@ function App() {
     setSelectedFile(null);
     setResumeError(null);
     setInterviewQuestions(defaultInterviewQuestions);
+    // Reset candidate states
+    setCandidateName(null);
+    setCandidateFolder(null);
     
     // Navigate back
     window.history.pushState({ page: 'home' }, '', '#');
@@ -476,8 +488,12 @@ function App() {
 
       if (response.data.success && response.data.data.questions) {
         setInterviewQuestions(response.data.data.questions);
+        setCandidateName(response.data.data.candidateName || 'Unknown');
+        setCandidateFolder(response.data.data.candidateFolder || '');
         setResumeUploaded(true);
-        console.log('Personalized questions loaded:', response.data.data.questions);
+        console.log('Candidate:', response.data.data.candidateName);
+        console.log('Folder:', response.data.data.candidateFolder);
+        console.log('Personalized questions loaded:', response.data.data.questions.length, 'questions');
       } else {
         throw new Error('Invalid response format');
       }
@@ -644,6 +660,8 @@ function App() {
               setResumeUploaded(false);
               setSelectedFile(null);
               setInterviewQuestions(defaultInterviewQuestions);
+              setCandidateName(null);
+              setCandidateFolder(null);
               window.history.pushState({ page: 'home' }, '', '#');
               setCurrentPage('home');
             }}

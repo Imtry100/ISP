@@ -105,7 +105,7 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'Server is running' });
 });
 
-// Upload video endpoint
+// Upload video endpoint - now saves to candidate folder with proper naming
 app.post('/upload', uploadVideo.single('video'), (req, res) => {
     try {
         if (!req.file) {
@@ -115,24 +115,68 @@ app.post('/upload', uploadVideo.single('video'), (req, res) => {
             });
         }
 
-        const { questionId, questionText } = req.body;
-
-        console.log(`✓ Video uploaded successfully`);
-        console.log(`  - Filename: ${req.file.filename}`);
-        console.log(`  - Size: ${(req.file.size / (1024 * 1024)).toFixed(2)} MB`);
-        console.log(`  - Question ID: ${questionId || 'N/A'}`);
-
-        res.status(200).json({
-            success: true,
-            message: 'Video uploaded successfully',
-            data: {
-                filename: req.file.filename,
-                size: req.file.size,
-                path: req.file.path,
-                questionId: questionId || null,
-                uploadedAt: new Date().toISOString()
+        const { questionId, questionText, candidateName, candidateFolder } = req.body;
+        
+        // Determine destination folder and filename
+        let destFolder = uploadsDir;
+        let newFilename = req.file.filename;
+        
+        if (candidateFolder) {
+            destFolder = path.join(uploadsDir, candidateFolder);
+            // Create folder if it doesn't exist
+            if (!fs.existsSync(destFolder)) {
+                fs.mkdirSync(destFolder, { recursive: true });
             }
-        });
+            
+            // Rename file to candidateName_questionId.webm
+            const safeName = (candidateName || candidateFolder).replace(/[^a-zA-Z0-9]/g, '_');
+            const extension = path.extname(req.file.filename);
+            newFilename = `${safeName}_Q${questionId}${extension}`;
+            
+            // Move file to candidate folder with new name
+            const oldPath = req.file.path;
+            const newPath = path.join(destFolder, newFilename);
+            fs.renameSync(oldPath, newPath);
+            
+            console.log(`✓ Video uploaded successfully`);
+            console.log(`  - Candidate: ${candidateName}`);
+            console.log(`  - Filename: ${newFilename}`);
+            console.log(`  - Folder: ${destFolder}`);
+            console.log(`  - Size: ${(req.file.size / (1024 * 1024)).toFixed(2)} MB`);
+            console.log(`  - Question ID: ${questionId || 'N/A'}`);
+
+            res.status(200).json({
+                success: true,
+                message: 'Video uploaded successfully',
+                data: {
+                    filename: newFilename,
+                    folder: candidateFolder,
+                    size: req.file.size,
+                    path: newPath,
+                    questionId: questionId || null,
+                    candidateName: candidateName,
+                    uploadedAt: new Date().toISOString()
+                }
+            });
+        } else {
+            // Fallback to old behavior
+            console.log(`✓ Video uploaded successfully`);
+            console.log(`  - Filename: ${req.file.filename}`);
+            console.log(`  - Size: ${(req.file.size / (1024 * 1024)).toFixed(2)} MB`);
+            console.log(`  - Question ID: ${questionId || 'N/A'}`);
+
+            res.status(200).json({
+                success: true,
+                message: 'Video uploaded successfully',
+                data: {
+                    filename: req.file.filename,
+                    size: req.file.size,
+                    path: req.file.path,
+                    questionId: questionId || null,
+                    uploadedAt: new Date().toISOString()
+                }
+            });
+        }
     } catch (error) {
         console.error('Upload error:', error);
         res.status(500).json({
@@ -163,17 +207,35 @@ app.post('/generate-questions', uploadPdf.single('resume'), async (req, res) => 
 
         console.log(`  - Extracted ${cvText.length} characters from PDF`);
 
-        // Build the prompt
+        // Build the prompt - also extract candidate name
         const prompt = `CV TEXT:\n${cvText}\n\nSEED QUESTIONS:\n${JSON.stringify(SEED_QUESTIONS)}\n\n` +
-            `Based on this CV/resume, generate 10 personalized interview questions that are tailored to the candidate's experience, skills, and background. ` +
-            `The questions should be inspired by the seed questions but customized based on specific details from the CV. ` +
-            `Output ONLY valid JSON in this exact format: {"questions": [{"id": 1, "text": "question text here"}, {"id": 2, "text": "question text here"}, ...]}`;
+            `Based on this CV/resume, do the following:
+1. Extract the candidate's full name from the CV
+2. Generate exactly 10 personalized interview questions that are tailored to the candidate's experience, skills, and background.
+
+The questions should be inspired by the seed questions but customized based on specific details from the CV.
+Output ONLY valid JSON in this exact format:
+{
+    "candidateName": "Full Name from CV",
+    "questions": [
+        {"id": 1, "text": "question text here"},
+        {"id": 2, "text": "question text here"},
+        {"id": 3, "text": "question text here"},
+        {"id": 4, "text": "question text here"},
+        {"id": 5, "text": "question text here"},
+        {"id": 6, "text": "question text here"},
+        {"id": 7, "text": "question text here"},
+        {"id": 8, "text": "question text here"},
+        {"id": 9, "text": "question text here"},
+        {"id": 10, "text": "question text here"}
+    ]
+}`;
 
         // Call OpenRouter API
         const response = await openai.chat.completions.create({
             model: "nvidia/nemotron-nano-9b-v2:free",
             messages: [
-                { role: "system", content: "You are a recruitment assistant. Output ONLY valid JSON with no additional text or markdown." },
+                { role: "system", content: "You are a recruitment assistant. Output ONLY valid JSON with exactly 10 questions. No markdown, no extra text." },
                 { role: "user", content: prompt }
             ]
         });
@@ -182,18 +244,52 @@ app.post('/generate-questions', uploadPdf.single('resume'), async (req, res) => 
         console.log(`✓ Generated personalized questions`);
         
         // Parse and validate the response
-        let questions;
+        let parsedResponse;
         try {
-            questions = JSON.parse(generatedContent);
+            // Clean up response if it has markdown code blocks
+            let cleanContent = generatedContent;
+            if (cleanContent.includes('```json')) {
+                cleanContent = cleanContent.split('```json')[1].split('```')[0];
+            } else if (cleanContent.includes('```')) {
+                cleanContent = cleanContent.split('```')[1].split('```')[0];
+            }
+            parsedResponse = JSON.parse(cleanContent.trim());
         } catch (parseError) {
             console.error('Failed to parse LLM response:', generatedContent);
             throw new Error('Failed to parse generated questions');
         }
 
+        const candidateName = parsedResponse.candidateName || 'Unknown';
+        const questions = parsedResponse.questions || [];
+        
+        // Create candidate folder
+        const safeName = candidateName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+        const candidateFolder = path.join(uploadsDir, `candidate_${safeName}`);
+        if (!fs.existsSync(candidateFolder)) {
+            fs.mkdirSync(candidateFolder, { recursive: true });
+        }
+
+        // Save questions to candidate folder for the Whisper pipeline
+        const questionsFilePath = path.join(candidateFolder, 'questions.json');
+        fs.writeFileSync(questionsFilePath, JSON.stringify({
+            candidateName: candidateName,
+            generatedAt: new Date().toISOString(),
+            questions: questions
+        }, null, 2));
+
+        console.log(`  - Candidate: ${candidateName}`);
+        console.log(`  - Questions generated: ${questions.length}`);
+        console.log(`  - Folder created: ${candidateFolder}`);
+        console.log(`  - Questions saved to: ${questionsFilePath}`);
+
         res.status(200).json({
             success: true,
             message: 'Questions generated successfully',
-            data: questions
+            data: {
+                candidateName: candidateName,
+                candidateFolder: `candidate_${safeName}`,
+                questions: questions
+            }
         });
 
     } catch (error) {

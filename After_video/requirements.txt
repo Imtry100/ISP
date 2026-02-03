@@ -1,0 +1,5 @@
+whisperx
+openai
+python-dotenv
+watchdog
+torch
