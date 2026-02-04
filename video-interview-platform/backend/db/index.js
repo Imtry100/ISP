@@ -43,9 +43,29 @@ async function insertSessionVideo(sessionId, questionId, questionText, filename,
     return result.rows[0].id;
 }
 
+async function setVideoEvaluationStatus(sessionVideoId, status) {
+    if (!pool) return;
+    await pool.query(
+        'UPDATE session_videos SET evaluation_status = $1 WHERE id = $2',
+        [status, sessionVideoId]
+    );
+}
+
+async function updateSessionVideoEvaluation(sessionVideoId, transcriptText, answerText, expectedExpression, evaluationJson, score) {
+    if (!pool) return;
+    await pool.query(
+        `UPDATE session_videos SET
+         transcript_text = $1, answer_text = $2, expected_expression = $3, evaluation_json = $4, score = $5, evaluation_status = 'completed'
+         WHERE id = $6`,
+        [transcriptText || null, answerText || null, expectedExpression || null, evaluationJson ? JSON.stringify(evaluationJson) : null, score ?? null, sessionVideoId]
+    );
+}
+
 module.exports = {
     get pool() { return pool; },
     getOrCreateGuestUserId,
     createSession,
-    insertSessionVideo
+    insertSessionVideo,
+    setVideoEvaluationStatus,
+    updateSessionVideoEvaluation
 };

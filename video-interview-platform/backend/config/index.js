@@ -23,6 +23,9 @@ module.exports = {
     port: process.env.PORT || 5000,
     databaseUrl: process.env.DATABASE_URL || null,
     openRouterApiKey: process.env.OPENROUTER_API_KEY,
+    openaiApiKey: process.env.OPENAI_API_KEY || null,
+    whisperXScriptPath: process.env.WHISPERX_SCRIPT_PATH || null,
+    useWhisperNode: process.env.USE_WHISPER_NODE === 'true',
     uploadsDir,
     SEED_QUESTIONS,
     cors: {

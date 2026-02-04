@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const db = require('../db');
 const { uploadVideo } = require('../middleware/upload');
+const { triggerPipeline } = require('../services/videoEvaluationPipeline');
 
 const router = express.Router();
 
@@ -19,12 +20,13 @@ router.post('/', uploadVideo.single('video'), async (req, res) => {
         const relativePath = path.join('uploads', req.file.filename).split(path.sep).join('/');
 
         let sessionId = sessionIdFromBody || null;
+        let sessionVideoId = null;
         if (db.pool) {
             if (!sessionId) {
                 sessionId = await db.createSession(null);
             }
             if (sessionId) {
-                await db.insertSessionVideo(
+                sessionVideoId = await db.insertSessionVideo(
                     sessionId,
                     questionId,
                     questionText,
@@ -33,6 +35,10 @@ router.post('/', uploadVideo.single('video'), async (req, res) => {
                     req.file.size
                 );
             }
+        }
+
+        if (sessionVideoId && req.file.path) {
+            triggerPipeline(sessionVideoId, req.file.path, questionText || '');
         }
 
         console.log(`✓ Video uploaded successfully`);
