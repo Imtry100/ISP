@@ -104,6 +104,7 @@ function App() {
   const [isCountingDown, setIsCountingDown] = useState(false);
   const [timeWarning, setTimeWarning] = useState(false); // Warning at 30 seconds left
   const [timeExpired, setTimeExpired] = useState(false); // Time is up
+  const [interviewSessionId, setInterviewSessionId] = useState(null); // One session per full interview
 
   // Constants
   const MAX_RECORDING_TIME = 120; // 2 minutes in seconds
@@ -157,11 +158,9 @@ function App() {
         setSelectedFile(null);
         setResumeError(null);
         setInterviewQuestions(defaultInterviewQuestions);
-        // Reset candidate states
-        setCandidateName(null);
-        setCandidateFolder(null);
+        setInterviewSessionId(null);
       }
-      
+
       setCurrentPage(page);
     };
 
@@ -254,13 +253,28 @@ function App() {
   };
 
   // Handle Start button click - show question and start countdown
-  const handleStartClick = useCallback(() => {
+  const handleStartClick = useCallback(async () => {
+    setError(null);
+    setUploadSuccess(false);
+
+    // Create one session for the whole interview when starting the first question
+    if (currentQuestionIndex === 0 && !interviewSessionId) {
+      try {
+        const sessionRes = await axios.post(`${API_URL}/sessions`, {}, {
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (sessionRes.data?.success && sessionRes.data?.data?.session_id) {
+          setInterviewSessionId(sessionRes.data.data.session_id);
+        }
+      } catch (err) {
+        console.warn('Session creation failed (uploads may still work):', err?.response?.data || err.message);
+      }
+    }
+
     setShowQuestion(true);
     setIsCountingDown(true);
     setCountdown(10);
-    setError(null);
-    setUploadSuccess(false);
-    
+
     // Start countdown
     countdownRef.current = setInterval(() => {
       setCountdown(prev => {
@@ -277,7 +291,7 @@ function App() {
         return prev - 1;
       });
     }, 1000);
-  }, []);
+  }, [currentQuestionIndex, interviewSessionId]);
 
   // Actual recording start function
   const actuallyStartRecording = useCallback(() => {
@@ -342,8 +356,9 @@ function App() {
     formData.append('video', blob, `question-${currentQuestion.id}.webm`);
     formData.append('questionId', currentQuestion.id.toString());
     formData.append('questionText', currentQuestion.text);
-    formData.append('candidateName', candidateName);
-    formData.append('candidateFolder', candidateFolder);
+    if (interviewSessionId) {
+      formData.append('session_id', interviewSessionId);
+    }
 
     try {
       const response = await axios.post(`${API_URL}/upload`, formData, {
@@ -359,10 +374,13 @@ function App() {
       });
 
       if (response.data.success) {
+        if (response.data.data?.sessionId && !interviewSessionId) {
+          setInterviewSessionId(response.data.data.sessionId);
+        }
         setUploadSuccess(true);
         setRecordedChunks([]);
         setIsPreviewing(false);
-        
+
         // Move to next question or complete interview
         setTimeout(() => {
           if (currentQuestionIndex < interviewQuestions.length - 1) {
@@ -380,7 +398,7 @@ function App() {
     } finally {
       setIsUploading(false);
     }
-  }, [recordedChunks, currentQuestion, currentQuestionIndex, candidateName, candidateFolder]);
+  }, [recordedChunks, currentQuestion, currentQuestionIndex, interviewSessionId]);
 
   const retakeRecording = () => {
     setRecordedChunks([]);
@@ -433,10 +451,8 @@ function App() {
     setSelectedFile(null);
     setResumeError(null);
     setInterviewQuestions(defaultInterviewQuestions);
-    // Reset candidate states
-    setCandidateName(null);
-    setCandidateFolder(null);
-    
+    setInterviewSessionId(null);
+
     // Navigate back
     window.history.pushState({ page: 'home' }, '', '#');
     setCurrentPage('home');
