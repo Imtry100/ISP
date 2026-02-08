@@ -38,7 +38,7 @@ router.post('/', uploadVideo.single('video'), async (req, res) => {
         }
 
         if (sessionVideoId && req.file.path) {
-            triggerPipeline(sessionVideoId, req.file.path, questionText || '');
+            triggerPipeline(sessionVideoId, req.file.path, questionText || '', sessionId, questionId, req.file.filename);
         }
 
         console.log(`✓ Video uploaded successfully`);

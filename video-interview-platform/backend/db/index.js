@@ -61,11 +61,45 @@ async function updateSessionVideoEvaluation(sessionVideoId, transcriptText, answ
     );
 }
 
+async function getSessionVideoById(sessionVideoId) {
+    if (!pool) return null;
+    const result = await pool.query(
+        `SELECT id, session_id, question_id, question_text, filename, file_path, evaluation_status
+         FROM session_videos WHERE id = $1`,
+        [sessionVideoId]
+    );
+    return result.rows[0] || null;
+}
+
+async function getSessionVideoByFilePath(filePath) {
+    if (!pool) return null;
+    const result = await pool.query(
+        `SELECT id, session_id, question_id, question_text, filename, file_path, evaluation_status
+         FROM session_videos WHERE file_path = $1`,
+        [filePath]
+    );
+    return result.rows[0] || null;
+}
+
+async function claimVideoForProcessing(sessionVideoId) {
+    if (!pool) return false;
+    const result = await pool.query(
+        `UPDATE session_videos
+         SET evaluation_status = 'processing'
+         WHERE id = $1 AND evaluation_status = 'pending'`,
+        [sessionVideoId]
+    );
+    return result.rowCount > 0;
+}
+
 module.exports = {
     get pool() { return pool; },
     getOrCreateGuestUserId,
     createSession,
     insertSessionVideo,
     setVideoEvaluationStatus,
-    updateSessionVideoEvaluation
+    updateSessionVideoEvaluation,
+    getSessionVideoById,
+    getSessionVideoByFilePath,
+    claimVideoForProcessing
 };

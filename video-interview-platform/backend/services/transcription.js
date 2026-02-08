@@ -55,7 +55,14 @@ async function transcribeWithOpenAIWhisper(filePath) {
 
 async function transcribeWithWhisperX(filePath) {
     return new Promise((resolve, reject) => {
-        const py = spawn('python', [config.whisperXScriptPath, filePath], {
+        // Use the venv Python if available
+        const venvPython = path.join(__dirname, '..', 'venv', 'Scripts', 'python.exe');
+        const pythonCmd = fs.existsSync(venvPython) ? venvPython : 'python';
+        
+        console.log('[Transcription] Using Python:', pythonCmd);
+        console.log('[Transcription] Script:', config.whisperXScriptPath);
+        
+        const py = spawn(pythonCmd, [config.whisperXScriptPath, filePath], {
             stdio: ['ignore', 'pipe', 'pipe']
         });
         let stdout = '';

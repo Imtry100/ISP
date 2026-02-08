@@ -7,9 +7,15 @@ A professional pre-selection interview application where users can view question
 ```
 video-interview-platform/
 ├── backend/
-│   ├── server.js           # Express server with Multer for video uploads
+│   ├── server.js           # Express server entry (starts watcher)
+│   ├── app.js              # Express app + routes
 │   ├── package.json        # Backend dependencies
-│   └── uploads/            # Directory for uploaded video files (auto-created)
+│   ├── db/                 # PostgreSQL access helpers
+│   ├── migrations/         # SQL migrations
+│   ├── routes/             # API routes (upload, sessions, questions)
+│   ├── services/           # Transcription + LLM + pipeline + watcher
+│   ├── middleware/         # Upload, CORS, error handling
+│   └── uploads/            # Uploaded videos + evaluations (auto-created)
 │
 ├── frontend/
 │   ├── public/
@@ -33,6 +39,8 @@ video-interview-platform/
 
 - Node.js 18+ installed
 - npm or yarn package manager
+- PostgreSQL 14+ (required for evaluations + session JSON)
+- Python 3.10+ (optional, only if using WhisperX script)
 
 ### Backend Setup
 
@@ -46,7 +54,32 @@ video-interview-platform/
    npm install
    ```
 
-3. Start the server:
+3. Configure environment variables (create backend/.env):
+   ```bash
+   # OpenRouter key for LLM evaluation
+   OPENROUTER_API_KEY=sk-...
+
+   # PostgreSQL connection (URL-encode special chars like @ -> %40)
+   DATABASE_URL=postgresql://postgres:your_password@localhost:5432/video_interview
+
+   # One of the transcription backends:
+   # Option A: OpenAI Whisper API
+   # OPENAI_API_KEY=sk-...
+
+   # Option B: WhisperX script
+   # WHISPERX_SCRIPT_PATH=D:\IS Project\After_video\whisper_pipeline.py
+
+   # Option C: whisper-node (requires ffmpeg)
+   # USE_WHISPER_NODE=true
+   ```
+
+4. Run migrations:
+   ```bash
+   npm run migrate
+   npm run migrate:eval
+   ```
+
+5. Start the server:
    ```bash
    npm start
    # or for development with auto-reload:
@@ -54,6 +87,11 @@ video-interview-platform/
    ```
 
 The backend server will run on `http://localhost:5000`
+
+### Where LLM Evaluation JSON is Saved
+
+- Database: `session_videos.evaluation_json`
+- File: `backend/uploads/evaluations/session_<sessionId>.json` (updates per new video)
 
 ### Frontend Setup
 

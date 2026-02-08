@@ -5,6 +5,10 @@ const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
+const evaluationsDir = path.join(uploadsDir, 'evaluations');
+if (!fs.existsSync(evaluationsDir)) {
+    fs.mkdirSync(evaluationsDir, { recursive: true });
+}
 
 const SEED_QUESTIONS = [
     "Tell me a little about yourself and what motivates you to wake up in the morning.",
@@ -27,6 +31,8 @@ module.exports = {
     whisperXScriptPath: process.env.WHISPERX_SCRIPT_PATH || null,
     useWhisperNode: process.env.USE_WHISPER_NODE === 'true',
     uploadsDir,
+    evaluationsDir,
+    uploadWatcherEnabled: process.env.UPLOAD_WATCHER !== 'false',
     SEED_QUESTIONS,
     cors: {
         origin: ['http://localhost:5173', 'http://localhost:3000'],

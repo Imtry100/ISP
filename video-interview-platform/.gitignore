@@ -1,11 +1,17 @@
 # Dependencies
 node_modules/
-package-lock.json
 
 # Environment variables
 .env
 .env.local
 .env.*.local
+
+# Python virtual environments
+.venv/
+venv/
+isp/
+__pycache__/
+.pytest_cache/
 
 # Uploads (video files)
 backend/uploads/*.webm

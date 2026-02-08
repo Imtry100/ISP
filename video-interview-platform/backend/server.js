@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const app = require('./app');
 const config = require('./config');
+const { startUploadsWatcher } = require('./services/uploadWatcher');
 
 const PORT = config.port;
 
@@ -19,4 +20,6 @@ app.listen(PORT, () => {
 ║  Database:             ${config.databaseUrl ? 'Postgres (DATABASE_URL)' : 'not configured'}             ║
 ╚══════════════════════════════════════════════════════════════╝
     `);
+
+    startUploadsWatcher();
 });
