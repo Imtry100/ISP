@@ -61,7 +61,8 @@ function upsertSessionEvaluation({
     score,
     filename,
     filePath,
-    qaJson
+    qaJson,
+    emotionData = null
 }) {
     if (!sessionId || !sessionVideoId) return null;
 
@@ -80,6 +81,10 @@ function upsertSessionEvaluation({
         expected_expression: expectedExpression || null,
         evaluation: evaluationJson || null,
         score: score ?? null,
+        emotion_analysis: emotionData ? {
+            emotions_timeline: emotionData.emotions_timeline,
+            summary: emotionData.summary
+        } : null,
         evaluated_at: new Date().toISOString()
     };
 

@@ -36,7 +36,34 @@ Output ONLY this JSON (no code block, no explanation):
 
     const raw = response.choices[0].message.content;
     const cleaned = raw.replace(/^```\w*\n?|\n?```$/g, '').trim();
-    const parsed = JSON.parse(cleaned);
+    
+    let parsed;
+    try {
+        parsed = JSON.parse(cleaned);
+    } catch (e1) {
+        // Try to extract JSON object from the response
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            try {
+                parsed = JSON.parse(jsonMatch[0]);
+            } catch (e2) {
+                // Try fixing common LLM JSON issues: trailing commas, unescaped newlines
+                let fixed = jsonMatch[0]
+                    .replace(/,\s*([}\]])/g, '$1')           // trailing commas
+                    .replace(/[\r\n]+/g, ' ')                 // newlines inside strings
+                    .replace(/\t/g, ' ');                     // tabs
+                try {
+                    parsed = JSON.parse(fixed);
+                } catch (e3) {
+                    console.error('[Evaluation] Raw LLM output:', raw.slice(0, 600));
+                    throw new Error('LLM returned invalid JSON: ' + e3.message);
+                }
+            }
+        } else {
+            console.error('[Evaluation] Raw LLM output:', raw.slice(0, 600));
+            throw new Error('LLM response contains no JSON object');
+        }
+    }
 
     const expected_expression = typeof parsed.expected_expression === 'string' ? parsed.expected_expression : String(parsed.expected_expression || '');
     const answer_text = typeof parsed.answer_text === 'string' ? parsed.answer_text : String(parsed.answer_text || '');

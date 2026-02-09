@@ -5,6 +5,7 @@ const config = require('../config');
 const db = require('../db');
 const transcription = require('./transcription');
 const evaluation = require('./evaluation');
+const { analyzeEmotions } = require('./emotionAnalysis');
 const { upsertSessionEvaluation } = require('./sessionEvaluationStore');
 
 const VIDEO_EXTENSIONS = new Set(['.webm', '.mp4', '.mkv', '.mov']);
@@ -63,14 +64,30 @@ async function runFilePipeline(filePath) {
     console.log(`[FilePipeline] Processing: ${filename}`);
     console.log(`[FilePipeline] Candidate: ${candidateName}, Q${questionNum}`);
 
-    // Transcribe
-    console.log('[FilePipeline] Transcribing...');
-    const { text: transcriptText } = await transcription.transcribe(filePath);
+    // Transcribe + Emotion analysis in parallel
+    console.log('[FilePipeline] Transcribing + Analyzing emotions...');
+    const [transcriptResult, emotionResult] = await Promise.allSettled([
+        transcription.transcribe(filePath),
+        analyzeEmotions(filePath)
+    ]);
+
+    const { text: transcriptText } = transcriptResult.status === 'fulfilled' ? transcriptResult.value : { text: '' };
+    if (transcriptResult.status === 'rejected') {
+        console.error('[FilePipeline] Transcription failed:', transcriptResult.reason?.message);
+    }
     if (!transcriptText || !transcriptText.trim()) {
         console.error('[FilePipeline] Empty transcript');
         return;
     }
     console.log(`[FilePipeline] Transcript: ${transcriptText.length} chars`);
+
+    let emotionData = null;
+    if (emotionResult.status === 'fulfilled' && emotionResult.value) {
+        emotionData = emotionResult.value;
+        console.log(`[FilePipeline] Emotion analysis done — longest emotion: ${emotionData.summary?.longest_emotion?.emotion} (${emotionData.summary?.longest_emotion?.duration_sec}s)`);
+    } else if (emotionResult.status === 'rejected') {
+        console.error('[FilePipeline] Emotion analysis failed:', emotionResult.reason?.message);
+    }
 
     // Build QA JSON
     const qaJson = { question: questionText, answer: transcriptText };
@@ -110,6 +127,10 @@ async function runFilePipeline(filePath) {
         evaluation: evaluation_json,
         score,
         filename,
+        emotion_analysis: emotionData ? {
+            emotions_timeline: emotionData.emotions_timeline,
+            summary: emotionData.summary
+        } : null,
         evaluated_at: new Date().toISOString()
     };
 

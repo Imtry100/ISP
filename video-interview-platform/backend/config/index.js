@@ -30,6 +30,7 @@ module.exports = {
     openaiApiKey: process.env.OPENAI_API_KEY || null,
     whisperXScriptPath: process.env.WHISPERX_SCRIPT_PATH || null,
     useWhisperNode: process.env.USE_WHISPER_NODE === 'true',
+    deepfaceScriptPath: process.env.DEEPFACE_SCRIPT_PATH || path.join(__dirname, '..', 'scripts', 'deepface_analyze.py'),
     uploadsDir,
     evaluationsDir,
     uploadWatcherEnabled: process.env.UPLOAD_WATCHER !== 'false',

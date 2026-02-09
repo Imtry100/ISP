@@ -1,6 +1,7 @@
 const db = require('../db');
 const transcription = require('./transcription');
 const evaluation = require('./evaluation');
+const { analyzeEmotions } = require('./emotionAnalysis');
 const { upsertSessionEvaluation } = require('./sessionEvaluationStore');
 
 /**
@@ -26,14 +27,31 @@ async function runPipeline(sessionVideoId, filePath, questionText, sessionId = n
         }
         console.log(`[Pipeline] Status set to processing`);
 
-        console.log(`[Pipeline] Transcribing...`);
-        const { text: transcriptText } = await transcription.transcribe(filePath);
+        // Run transcription and emotion analysis in parallel
+        console.log(`[Pipeline] Transcribing + Analyzing emotions...`);
+        const [transcriptResult, emotionResult] = await Promise.allSettled([
+            transcription.transcribe(filePath),
+            analyzeEmotions(filePath)
+        ]);
+
+        const { text: transcriptText } = transcriptResult.status === 'fulfilled' ? transcriptResult.value : { text: '' };
+        if (transcriptResult.status === 'rejected') {
+            console.error(`[Pipeline] Transcription failed:`, transcriptResult.reason?.message);
+        }
         if (!transcriptText || !transcriptText.trim()) {
             await db.setVideoEvaluationStatus(sessionVideoId, 'failed');
             console.error(`[Pipeline] Empty transcript for video ${sessionVideoId}`);
             return;
         }
         console.log(`[Pipeline] Transcript done (${transcriptText.length} chars)`);
+
+        let emotionData = null;
+        if (emotionResult.status === 'fulfilled' && emotionResult.value) {
+            emotionData = emotionResult.value;
+            console.log(`[Pipeline] Emotion analysis done — longest emotion: ${emotionData.summary?.longest_emotion?.emotion} (${emotionData.summary?.longest_emotion?.duration_sec}s)`);
+        } else if (emotionResult.status === 'rejected') {
+            console.error(`[Pipeline] Emotion analysis failed:`, emotionResult.reason?.message);
+        }
 
         const qaJson = {
             question: questionText || '',
@@ -85,7 +103,8 @@ async function runPipeline(sessionVideoId, filePath, questionText, sessionId = n
                 score,
                 filename: resolvedFilename,
                 filePath,
-                qaJson
+                qaJson,
+                emotionData
             });
             if (sessionFilePath) {
                 console.log(`[Pipeline] Updated session JSON: ${sessionFilePath}`);
