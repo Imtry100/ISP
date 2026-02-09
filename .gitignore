@@ -1,0 +1,27 @@
+# Python virtual environment
+isp/
+__pycache__/
+*.pyc
+*.pyo
+
+# Node
+node_modules/
+video-interview-platform/backend/node_modules/
+video-interview-platform/frontend/node_modules/
+
+# Environment files
+.env
+video-interview-platform/backend/.env
+
+# Uploads & evaluations (user data)
+video-interview-platform/backend/uploads/*.webm
+video-interview-platform/backend/uploads/*.mp4
+video-interview-platform/backend/uploads/evaluations/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.swp

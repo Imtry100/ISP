@@ -4,8 +4,8 @@
   "description": "Backend server for Video Interview Platform",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node --no-deprecation server.js",
+    "dev": "nodemon --no-deprecation server.js",
     "migrate": "node scripts/run-migration.js",
     "migrate:eval": "node scripts/run-migration-eval.js"
   },
