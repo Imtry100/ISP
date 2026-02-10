@@ -31,9 +31,14 @@ async function analyzeEmotions(filePath) {
 function runDeepFaceScript(filePath, scriptPath) {
     return new Promise((resolve, reject) => {
         // Use the venv Python if available (same logic as transcription.js)
-        const venvPython = path.join(__dirname, '..', 'venv', 'Scripts', 'python.exe');
-        const ispVenv = path.join(__dirname, '..', '..', '..', 'isp', 'Scripts', 'python.exe');
+        const venvPython = path.resolve(__dirname, '..', 'venv', 'Scripts', 'python.exe');
+        const ispVenv = path.resolve(__dirname, '..', '..', '..', 'isp', 'Scripts', 'python.exe');
         let pythonCmd = 'python';
+        
+        console.log('[EmotionAnalysis] Checking venv paths...');
+        console.log('[EmotionAnalysis] venvPython:', venvPython, '- exists:', fs.existsSync(venvPython));
+        console.log('[EmotionAnalysis] ispVenv:', ispVenv, '- exists:', fs.existsSync(ispVenv));
+        
         if (fs.existsSync(venvPython)) {
             pythonCmd = venvPython;
         } else if (fs.existsSync(ispVenv)) {

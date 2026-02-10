@@ -5,7 +5,7 @@ const { analyzeEmotions } = require('./emotionAnalysis');
 const { upsertSessionEvaluation } = require('./sessionEvaluationStore');
 
 /**
- * Runs after each video upload: transcribe -> LLM evaluation -> save to DB.
+ * Runs after each video upload: transcribe -> LLM evaluation -> emotion evaluation -> combined scoring -> save to DB.
  * Fires asynchronously; does not block the upload response.
  * @param {string} sessionVideoId - UUID of the session_videos row
  * @param {string} filePath - Absolute path to the uploaded video file
@@ -59,12 +59,34 @@ async function runPipeline(sessionVideoId, filePath, questionText, sessionId = n
         };
 
         console.log(`[Pipeline] Running LLM evaluation...`);
-        const { answer_text, score, expected_expression, expected_emotions, evaluation_json } = await evaluation.evaluateAnswer(
+        const { answer_text, score: answerScore, expected_expression, expected_emotions, evaluation_json } = await evaluation.evaluateAnswer(
             questionText || '',
             transcriptText,
             qaJson
         );
-        console.log(`[Pipeline] Evaluation done — score: ${score}/10`);
+        console.log(`[Pipeline] Answer evaluation done — answer score: ${answerScore}/10`);
+
+        // Evaluate emotions if data is available
+        let emotionScore = 5; // Default neutral score
+        let emotionEvaluation = null;
+        if (emotionData) {
+            console.log(`[Pipeline] Running emotion evaluation...`);
+            const emotionResult = await evaluation.evaluateEmotions(
+                emotionData,
+                expected_emotions,
+                questionText || ''
+            );
+            emotionScore = emotionResult.emotion_score;
+            emotionEvaluation = emotionResult.emotion_evaluation;
+            console.log(`[Pipeline] Emotion evaluation done — emotion score: ${emotionScore}/10`);
+        }
+
+        // Compute overall score (70% answer, 30% emotions)
+        const { overall_score, breakdown } = evaluation.computeOverallScore(answerScore, emotionScore);
+        console.log(`[Pipeline] Overall score: ${overall_score}/10 (answer: ${answerScore}, emotion: ${emotionScore})`);
+
+        // Use overall score for DB storage
+        const score = overall_score;
 
         await db.updateSessionVideoEvaluation(
             sessionVideoId,
@@ -74,7 +96,7 @@ async function runPipeline(sessionVideoId, filePath, questionText, sessionId = n
             evaluation_json,
             score
         );
-        console.log(`[Pipeline] Saved to DB — video ${sessionVideoId} completed (score: ${score})`);
+        console.log(`[Pipeline] Saved to DB — video ${sessionVideoId} completed (overall score: ${score})`);
 
         let resolvedSessionId = sessionId;
         let resolvedQuestionId = questionId;
@@ -100,7 +122,11 @@ async function runPipeline(sessionVideoId, filePath, questionText, sessionId = n
                 answerText: answer_text,
                 expectedExpression: expected_expression,
                 evaluationJson: evaluation_json,
-                score,
+                answerScore,
+                emotionScore,
+                emotionEvaluation,
+                overallScore: overall_score,
+                scoreBreakdown: breakdown,
                 filename: resolvedFilename,
                 filePath,
                 qaJson,

@@ -35,17 +35,32 @@ function saveSessionEvaluation(sessionId, data) {
 }
 
 function recomputeSummary(data) {
-    const scores = [];
+    const answerScores = [];
+    const emotionScores = [];
+    const overallScores = [];
     for (const key of Object.keys(data.videos || {})) {
-        const score = Number(data.videos[key]?.score);
-        if (!Number.isNaN(score)) scores.push(score);
+        const video = data.videos[key];
+        const overall = Number(video?.overall_score ?? video?.score);
+        const answer = Number(video?.answer_score);
+        const emotion = Number(video?.emotion_score);
+        if (!Number.isNaN(overall)) overallScores.push(overall);
+        if (!Number.isNaN(answer)) answerScores.push(answer);
+        if (!Number.isNaN(emotion)) emotionScores.push(emotion);
     }
-    const total = scores.length;
-    const avg = total > 0 ? Number((scores.reduce((a, b) => a + b, 0) / total).toFixed(2)) : 0;
+    const total = overallScores.length;
+    const avgOverall = total > 0 ? Number((overallScores.reduce((a, b) => a + b, 0) / total).toFixed(2)) : 0;
+    const avgAnswer = answerScores.length > 0 ? Number((answerScores.reduce((a, b) => a + b, 0) / answerScores.length).toFixed(2)) : 0;
+    const avgEmotion = emotionScores.length > 0 ? Number((emotionScores.reduce((a, b) => a + b, 0) / emotionScores.length).toFixed(2)) : 0;
+    
     data.summary = {
         total_videos: total,
-        average_score: avg,
-        scores
+        average_overall_score: avgOverall,
+        average_answer_score: avgAnswer,
+        average_emotion_score: avgEmotion,
+        overall_scores: overallScores,
+        // Keep legacy field for backwards compatibility
+        average_score: avgOverall,
+        scores: overallScores
     };
 }
 
@@ -58,15 +73,26 @@ function upsertSessionEvaluation({
     answerText,
     expectedExpression,
     evaluationJson,
-    score,
+    answerScore,
+    emotionScore,
+    emotionEvaluation,
+    overallScore,
+    scoreBreakdown,
     filename,
     filePath,
     qaJson,
-    emotionData = null
+    emotionData = null,
+    // Legacy support
+    score = null
 }) {
     if (!sessionId || !sessionVideoId) return null;
 
     const data = loadSessionEvaluation(sessionId);
+
+    // Use overall score if provided, otherwise fall back to legacy score
+    const finalOverallScore = overallScore ?? score;
+    const finalAnswerScore = answerScore ?? score;
+    const finalEmotionScore = emotionScore ?? 5;
 
     data.videos = data.videos || {};
     data.videos[sessionVideoId] = {
@@ -80,7 +106,21 @@ function upsertSessionEvaluation({
         answer_text: answerText || null,
         expected_expression: expectedExpression || null,
         evaluation: evaluationJson || null,
-        score: score ?? null,
+        // New scoring structure
+        answer_score: finalAnswerScore,
+        emotion_score: finalEmotionScore,
+        overall_score: finalOverallScore,
+        score_breakdown: scoreBreakdown || {
+            answer_score: finalAnswerScore,
+            answer_weight: 0.7,
+            emotion_score: finalEmotionScore,
+            emotion_weight: 0.3,
+            weighted_answer: Math.round(finalAnswerScore * 0.7 * 10) / 10,
+            weighted_emotion: Math.round(finalEmotionScore * 0.3 * 10) / 10
+        },
+        emotion_evaluation: emotionEvaluation || null,
+        // Legacy field for backwards compatibility
+        score: finalOverallScore,
         emotion_analysis: emotionData ? {
             emotions_timeline: emotionData.emotions_timeline,
             summary: emotionData.summary
