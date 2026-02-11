@@ -1,8 +1,16 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import axios from 'axios';
+import { useAuth } from './context/AuthContext';
 import Home from './pages/Home';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import Admin from './pages/Admin';
 
 const API_URL = 'http://localhost:5000';
+
+function getAuthHeaders(token) {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 // Default fallback questions (used only if API fails)
 const defaultInterviewQuestions = [
@@ -68,11 +76,10 @@ const playBeep = () => {
 };
 
 function App() {
-  // Page navigation state
-  const [currentPage, setCurrentPage] = useState(() => {
-    // Check URL hash on initial load
-    return window.location.hash === '#interview' ? 'interview' : 'home';
-  });
+  const { user, token, isUser, isAdmin, logout, ready } = useAuth();
+
+  // Page navigation state (synced with URL hash via effect below)
+  const [currentPage, setCurrentPage] = useState('home');
   
   // Resume upload states
   const [interviewQuestions, setInterviewQuestions] = useState(defaultInterviewQuestions);
@@ -105,6 +112,7 @@ function App() {
   const [timeWarning, setTimeWarning] = useState(false); // Warning at 30 seconds left
   const [timeExpired, setTimeExpired] = useState(false); // Time is up
   const [interviewSessionId, setInterviewSessionId] = useState(null); // One session per full interview
+  const [homeMessage, setHomeMessage] = useState(null); // Message on home (e.g. admin cannot interview)
 
   // Constants
   const MAX_RECORDING_TIME = 120; // 2 minutes in seconds
@@ -119,10 +127,64 @@ function App() {
 
   const currentQuestion = interviewQuestions[currentQuestionIndex];
 
+  // Sync currentPage with URL hash (initial load + user clicks e.g. "Admin Panel" -> #admin)
+  useEffect(() => {
+    const syncFromHash = () => {
+      const hash = window.location.hash.slice(1) || 'home';
+      const page = hash === 'interview' ? 'interview' : hash === 'login' ? 'login' : hash === 'signup' ? 'signup' : hash === 'admin' ? 'admin' : 'home';
+      setCurrentPage(page);
+    };
+    syncFromHash();
+    window.addEventListener('hashchange', syncFromHash);
+    return () => window.removeEventListener('hashchange', syncFromHash);
+  }, []);
+
+  // When already logged in as admin and landing on home (no hash or #home), show admin page directly
+  useEffect(() => {
+    if (!ready || !isAdmin) return;
+    const hash = window.location.hash.slice(1) || 'home';
+    if (hash === 'home' || hash === '') {
+      setCurrentPage('admin');
+      window.history.replaceState({}, '', '#admin');
+    }
+  }, [ready, isAdmin]);
+
+  // Redirect if on interview page but not allowed (not logged in or admin)
+  useEffect(() => {
+    if (!ready) return;
+    if (currentPage !== 'interview') return;
+    if (!user) {
+      setCurrentPage('login');
+      window.history.pushState({}, '', '#login');
+      return;
+    }
+    if (isAdmin) {
+      setHomeMessage('Only users can give interviews.');
+      setCurrentPage('home');
+      window.history.pushState({}, '', '#');
+    }
+  }, [ready, currentPage, user, isAdmin]);
+
+  // Redirect if on admin page but not admin
+  useEffect(() => {
+    if (!ready) return;
+    if (currentPage !== 'admin') return;
+    if (!user) {
+      setCurrentPage('login');
+      window.history.pushState({}, '', '#login');
+      return;
+    }
+    if (!isAdmin) {
+      setCurrentPage('home');
+      window.history.pushState({}, '', '#');
+    }
+  }, [ready, currentPage, user, isAdmin]);
+
   // Handle browser back/forward buttons
   useEffect(() => {
     const handlePopState = () => {
-      const page = window.location.hash === '#interview' ? 'interview' : 'home';
+      const hash = window.location.hash.slice(1) || 'home';
+      const page = hash === 'interview' ? 'interview' : hash === 'login' ? 'login' : hash === 'signup' ? 'signup' : hash === 'admin' ? 'admin' : 'home';
       
       // If navigating back to home, clean up
       if (page === 'home') {
@@ -261,7 +323,7 @@ function App() {
     if (currentQuestionIndex === 0 && !interviewSessionId) {
       try {
         const sessionRes = await axios.post(`${API_URL}/sessions`, {}, {
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders(token) }
         });
         if (sessionRes.data?.success && sessionRes.data?.data?.session_id) {
           setInterviewSessionId(sessionRes.data.data.session_id);
@@ -363,7 +425,8 @@ function App() {
     try {
       const response = await axios.post(`${API_URL}/upload`, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'multipart/form-data',
+          ...getAuthHeaders(token)
         },
         onUploadProgress: (progressEvent) => {
           const progress = Math.round(
@@ -421,8 +484,17 @@ function App() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Handler to start interview from landing page
+  // Handler to start interview from landing page (only for role user)
   const handleStartInterview = () => {
+    setHomeMessage(null);
+    if (!user) {
+      setCurrentPage('login');
+      return;
+    }
+    if (isAdmin) {
+      setHomeMessage('Only users can give interviews. Use Admin Panel to view results.');
+      return;
+    }
     window.history.pushState({ page: 'interview' }, '', '#interview');
     setCurrentPage('interview');
   };
@@ -492,7 +564,8 @@ function App() {
     try {
       const response = await axios.post(`${API_URL}/generate-questions`, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'multipart/form-data',
+          ...getAuthHeaders(token)
         },
         onUploadProgress: (progressEvent) => {
           const progress = Math.round(
@@ -522,9 +595,50 @@ function App() {
     }
   };
 
+  // Login / Signup pages
+  if (currentPage === 'login') {
+    return (
+      <Login
+        onSuccess={(user) => {
+          const page = user?.role === 'admin' ? 'admin' : 'home';
+          setCurrentPage(page);
+          window.history.pushState({}, '', page === 'admin' ? '#admin' : '#');
+        }}
+        onGoSignup={() => { window.history.pushState({}, '', '#signup'); setCurrentPage('signup'); }}
+      />
+    );
+  }
+  if (currentPage === 'signup') {
+    return (
+      <Signup
+        onSuccess={(user) => {
+          const page = user?.role === 'admin' ? 'admin' : 'home';
+          setCurrentPage(page);
+          window.history.pushState({}, '', page === 'admin' ? '#admin' : '#');
+        }}
+        onGoLogin={() => { window.history.pushState({}, '', '#login'); setCurrentPage('login'); }}
+      />
+    );
+  }
+
   // Show landing page
   if (currentPage === 'home') {
-    return <Home onStartInterview={handleStartInterview} />;
+    return (
+      <Home
+        user={user}
+        isUser={isUser}
+        isAdmin={isAdmin}
+        homeMessage={homeMessage}
+        onStartInterview={handleStartInterview}
+        onLogin={() => { setHomeMessage(null); setCurrentPage('login'); }}
+        onSignup={() => { setHomeMessage(null); setCurrentPage('signup'); }}
+        onLogout={logout}
+      />
+    );
+  }
+
+  if (currentPage === 'admin') {
+    return <Admin />;
   }
 
   // Resume Upload Screen (before interview starts)

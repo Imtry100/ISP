@@ -23,7 +23,7 @@ router.post('/', uploadVideo.single('video'), async (req, res) => {
         let sessionVideoId = null;
         if (db.pool) {
             if (!sessionId) {
-                sessionId = await db.createSession(null);
+                sessionId = await db.createSession(null, req.user.id);
             }
             if (sessionId) {
                 sessionVideoId = await db.insertSessionVideo(

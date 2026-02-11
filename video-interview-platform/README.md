@@ -59,8 +59,11 @@ video-interview-platform/
    # OpenRouter key for LLM evaluation
    OPENROUTER_API_KEY=sk-...
 
-   # PostgreSQL connection (URL-encode special chars like @ -> %40)
+   # PostgreSQL connection (URL-encode special chars like @ -> %40, % -> %25)
    DATABASE_URL=postgresql://postgres:your_password@localhost:5432/video_interview
+
+   # Auth (optional; default secret used if not set)
+   # JWT_SECRET=your-secret-for-production
 
    # One of the transcription backends:
    # Option A: OpenAI Whisper API
@@ -78,6 +81,11 @@ video-interview-platform/
    npm run migrate
    npm run migrate:eval
    ```
+
+5. **Auth & roles**: Sign up from the app (Login / Sign up on the home page). Two roles:
+   - **User**: Can start and complete video interviews (upload resume, record answers).
+   - **Admin**: Can open the Admin Panel to view all interview sessions and results (session-wise). Admins cannot give interviews.
+   Use the **Admin Panel** link when logged in as admin to see all tests taken by users.
 
 5. Start the server:
    ```bash

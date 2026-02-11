@@ -26,9 +26,10 @@ const SEED_QUESTIONS = [
 module.exports = {
     port: process.env.PORT || 5000,
     databaseUrl: process.env.DATABASE_URL || null,
+    jwtSecret: process.env.JWT_SECRET || 'video-interview-secret-change-in-production',
     openRouterApiKey: process.env.OPENROUTER_API_KEY,
     openaiApiKey: process.env.OPENAI_API_KEY || null,
-    whisperXScriptPath: process.env.WHISPERX_SCRIPT_PATH || null,
+    whisperXScriptPath: process.env.WHISPERX_SCRIPT_PATH || path.resolve(__dirname, '..', 'scripts', 'whisper_transcribe.py'),
     useWhisperNode: process.env.USE_WHISPER_NODE === 'true',
     deepfaceScriptPath: process.env.DEEPFACE_SCRIPT_PATH || path.join(__dirname, '..', 'scripts', 'deepface_analyze.py'),
     uploadsDir,
@@ -38,6 +39,6 @@ module.exports = {
     cors: {
         origin: ['http://localhost:5173', 'http://localhost:3000'],
         methods: ['GET', 'POST'],
-        allowedHeaders: ['Content-Type']
+        allowedHeaders: ['Content-Type', 'Authorization']
     }
 };

@@ -12,7 +12,7 @@ router.post('/', async (req, res) => {
             });
         }
         const { candidate_name: candidateName } = req.body || {};
-        const sessionId = await db.createSession(candidateName);
+        const sessionId = await db.createSession(candidateName, req.user.id);
         if (!sessionId) {
             return res.status(500).json({
                 success: false,

@@ -10,6 +10,24 @@ if (config.databaseUrl) {
     console.log('PostgreSQL: DATABASE_URL not set, uploads will not be saved to DB');
 }
 
+async function getUserByEmail(email) {
+    if (!pool) return null;
+    const result = await pool.query(
+        'SELECT id, email, password_hash, role FROM users WHERE email = $1',
+        [email]
+    );
+    return result.rows[0] || null;
+}
+
+async function createUser(email, passwordHash, role = 'user') {
+    if (!pool) return null;
+    const result = await pool.query(
+        'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role',
+        [email, passwordHash, role]
+    );
+    return result.rows[0] || null;
+}
+
 async function getOrCreateGuestUserId() {
     if (!pool) return null;
     const guestEmail = 'guest@video-interview.local';
@@ -22,13 +40,13 @@ async function getOrCreateGuestUserId() {
     return insert.rows[0].id;
 }
 
-async function createSession(candidateName = null) {
+async function createSession(candidateName = null, userId = null) {
     if (!pool) return null;
-    const userId = await getOrCreateGuestUserId();
-    if (!userId) return null;
+    const uid = userId || (await getOrCreateGuestUserId());
+    if (!uid) return null;
     const result = await pool.query(
         'INSERT INTO interview_sessions (user_id, candidate_name) VALUES ($1, $2) RETURNING id',
-        [userId, candidateName || null]
+        [uid, candidateName || null]
     );
     return result.rows[0].id;
 }
@@ -92,8 +110,30 @@ async function claimVideoForProcessing(sessionVideoId) {
     return result.rowCount > 0;
 }
 
+async function getAllSessionsWithVideos() {
+    if (!pool) return [];
+    const sessionsResult = await pool.query(
+        `SELECT s.id, s.candidate_name, s.status, s.created_at, s.updated_at, u.email as user_email
+         FROM interview_sessions s
+         JOIN users u ON u.id = s.user_id
+         ORDER BY s.created_at DESC`
+    );
+    const sessions = sessionsResult.rows;
+    for (const session of sessions) {
+        const videosResult = await pool.query(
+            `SELECT id, question_id, question_text, filename, file_path, evaluation_status, score, transcript_text, answer_text
+             FROM session_videos WHERE session_id = $1 ORDER BY question_id`,
+            [session.id]
+        );
+        session.videos = videosResult.rows;
+    }
+    return sessions;
+}
+
 module.exports = {
     get pool() { return pool; },
+    getUserByEmail,
+    createUser,
     getOrCreateGuestUserId,
     createSession,
     insertSessionVideo,
@@ -101,5 +141,6 @@ module.exports = {
     updateSessionVideoEvaluation,
     getSessionVideoById,
     getSessionVideoByFilePath,
-    claimVideoForProcessing
+    claimVideoForProcessing,
+    getAllSessionsWithVideos
 };
