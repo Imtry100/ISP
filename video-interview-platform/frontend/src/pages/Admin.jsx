@@ -153,6 +153,27 @@ function Admin() {
                           {v.answer_text && (
                             <p className="mt-2 text-slate-400 text-xs line-clamp-2">{v.answer_text}</p>
                           )}
+                          {/* Evaluation criteria breakdown */}
+                          {(() => {
+                            const rawData = typeof v.evaluation_json === 'string' ? JSON.parse(v.evaluation_json) : v.evaluation_json;
+                            const evalData = rawData?.evaluation;
+                            if (!evalData || typeof evalData !== 'object') return null;
+                            return (
+                              <div className="mt-3 space-y-2">
+                                <p className="text-xs font-semibold text-slate-300">Evaluation Breakdown:</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                  {['clarity', 'relevance', 'structure', 'examples', 'completeness', 'overall'].map((key) =>
+                                    evalData[key] ? (
+                                      <div key={key} className="p-2 rounded bg-white/5 border border-white/10">
+                                        <span className="font-semibold text-indigo-300 capitalize">{key}:</span>{' '}
+                                        <span className="text-slate-300">{evalData[key]}</span>
+                                      </div>
+                                    ) : null
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       ))}
                     </div>

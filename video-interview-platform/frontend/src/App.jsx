@@ -630,8 +630,8 @@ function App() {
         isAdmin={isAdmin}
         homeMessage={homeMessage}
         onStartInterview={handleStartInterview}
-        onLogin={() => { setHomeMessage(null); setCurrentPage('login'); }}
-        onSignup={() => { setHomeMessage(null); setCurrentPage('signup'); }}
+        onLogin={() => { setHomeMessage(null); window.history.pushState({}, '', '#login'); setCurrentPage('login'); }}
+        onSignup={() => { setHomeMessage(null); window.history.pushState({}, '', '#signup'); setCurrentPage('signup'); }}
         onLogout={logout}
       />
     );

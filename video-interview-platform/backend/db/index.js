@@ -121,7 +121,7 @@ async function getAllSessionsWithVideos() {
     const sessions = sessionsResult.rows;
     for (const session of sessions) {
         const videosResult = await pool.query(
-            `SELECT id, question_id, question_text, filename, file_path, evaluation_status, score, transcript_text, answer_text
+            `SELECT id, question_id, question_text, filename, file_path, evaluation_status, score, transcript_text, answer_text, evaluation_json
              FROM session_videos WHERE session_id = $1 ORDER BY question_id`,
             [session.id]
         );
